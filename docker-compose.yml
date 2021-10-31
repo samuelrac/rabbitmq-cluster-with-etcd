@@ -1,0 +1,151 @@
+version: "3.6"
+
+volumes:
+  rabbitmq1:
+  rabbitmq2:
+
+networks:
+  rabbitmq:
+  services:
+    external: true
+
+secrets:
+  rabbitmq_erl_cookie:
+    external: true
+
+services:
+
+  amqp_proxy0:
+    build:
+      context: .
+      dockerfile: haproxy.dockerfile
+    container_name: amqp_proxy0
+    hostname: amqp_proxy0
+    ports:
+      - "0.0.0.0:15672:15672"
+      - "0.0.0.0:5672:5672"
+      - "0.0.0.0:10000:20000"
+    networks:
+      - services
+      - rabbitmq
+    deploy:
+      placement:
+        constraints: 
+          - "node.role == worker"
+      resources:
+        limits:
+          memory: 1536M
+        reservations:
+          memory: 1024M
+    depends_on:
+      - amqp_node0
+      - amqp_node1
+    links:
+      - amqp_node0:amqp_node0
+      - amqp_node1:amqp_node1
+
+  amqp_node0:
+    build:
+      context: .
+      dockerfile: rabbitmq.dockerfile
+    container_name: amqp_node0
+    hostname: amqp_node0
+    ports:
+      - "0.0.0.0:10001:15672"
+    networks:
+      - rabbitmq
+      - services
+    deploy:
+      placement:
+        constraints:
+          - node.role == manager
+      resources:
+        limits:
+          memory: "1024Mi"
+        reservations:
+          memory: "512Mi"
+      restart_policy:
+        condition: on-failure
+    volumes:
+      - rabbitmq1:/var/lib/rabbitmq
+    secrets:
+      - source: rabbitmq_erl_cookie
+        target: /var/lib/rabbitmq/.erlang.cookie
+        uid: '999'
+        gid: '999'
+        mode: 0400
+
+  amqp_node1:
+    build:
+      context: .
+      dockerfile: rabbitmq.dockerfile
+    container_name: amqp_node1
+    hostname: amqp_node1
+    ports:
+      - "0.0.0.0:10002:15672"
+    networks:
+      - rabbitmq
+      - services
+    deploy:
+      placement:
+        constraints:
+          - node.role == manager
+      resources:
+        limits:
+          memory: "1024Mi"
+        reservations:
+          memory: "512Mi"
+      restart_policy:
+        condition: on-failure
+    volumes:
+      - rabbitmq2:/var/lib/rabbitmq
+    secrets:
+      - source: rabbitmq_erl_cookie
+        target: /var/lib/rabbitmq/.erlang.cookie
+        uid: '999'
+        gid: '999'
+        mode: 0400
+
+  etcd0:
+    image: quay.io/coreos/etcd:v3.5.1
+    container_name: etcd0
+    hostname: etcd0
+    networks:
+      - rabbitmq
+    environment:
+      - ETCD_NAME=etcd0
+      - ETCD_ADVERTISE_CLIENT_URLS=http://etcd0:2379,http://etcd0:4001
+      - ETCD_LISTEN_CLIENT_URLS=http://0.0.0.0:2379,http://0.0.0.0:4001
+      - ETCD_INITIAL_ADVERTISE_PEER_URLS=http://etcd0:2380
+      - ETCD_LISTEN_PEER_URLS=http://0.0.0.0:2380
+      - ETCD_INITIAL_CLUSTER_TOKEN=etcd-cluster-1
+      - ETCD_INITIAL_CLUSTER=etcd0=http://etcd0:2380,etcd1=http://etcd1:2380
+      - ETCD_INITIAL_CLUSTER_STATE=new
+    deploy:
+      resources:
+        limits:
+          memory: "512Mi"
+      restart_policy:
+        condition: on-failure
+
+  etcd1:
+    image: quay.io/coreos/etcd:v3.5.1
+    container_name: etcd1
+    hostname: etcd1
+    networks:
+      - rabbitmq
+    environment:
+      - ETCD_NAME=etcd1
+      - ETCD_ADVERTISE_CLIENT_URLS=http://etcd1:2379,http://etcd1:4001
+      - ETCD_LISTEN_CLIENT_URLS=http://0.0.0.0:2379,http://0.0.0.0:4001
+      - ETCD_INITIAL_ADVERTISE_PEER_URLS=http://etcd1:2380
+      - ETCD_LISTEN_PEER_URLS=http://0.0.0.0:2380
+      - ETCD_INITIAL_CLUSTER_TOKEN=etcd-cluster-1
+      - ETCD_INITIAL_CLUSTER=etcd0=http://etcd0:2380,etcd1=http://etcd1:2380
+      - ETCD_INITIAL_CLUSTER_STATE=new
+    deploy:
+      resources:
+        limits:
+          memory: "512Mi"
+      restart_policy:
+        condition: on-failure
