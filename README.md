@@ -6,11 +6,11 @@ To ensure that the two nodes of RabbitMQ work in sync it is necessary that both 
 
 ```
 secrets:
-       - source: rabbitmq_erl_cookie
-         target: /var/lib/rabbitmq/.erlang.cookie
-         uid: '999'
-         gid: '999'
-         mode: 0400
+    - source: rabbitmq_erl_cookie
+        target: /var/lib/rabbitmq/.erlang.cookie
+        uid: '999'
+        gid: '999'
+        mode: 0400
 ```
 Informing that my secret was stored in ``/var/lib/rabbitmq/.erlang.cookie`` and I ensured that it was created with the necessary permissions assigned to user 999 (rabbitmq) and group 999 (rabbitmq).
 
